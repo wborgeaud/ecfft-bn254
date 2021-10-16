@@ -13,7 +13,7 @@ pub trait EcFftParameters<F: PrimeField>: Sized {
 
     fn isogenies() -> Vec<Isogeny<F>>;
 
-    fn precompute() -> EcFftPrecomputation<F, Self>;
+    fn precompute(coset: Vec<F>) -> EcFftPrecomputation<F, Self>;
 }
 
 pub struct EcFftPrecomputationStep<F: PrimeField, P: EcFftParameters<F>> {
@@ -54,7 +54,7 @@ impl<F: PrimeField, P: EcFftParameters<F>> EcFftPrecomputation<F, P> {
             inverse_matrices,
             _phantom,
             ..
-        } = &self.steps[P::LOG_N - 1 - log_n];
+        } = &self.steps[self.steps.len() - log_n];
         let mut p0_evals = Vec::new();
         let mut p1_evals = Vec::new();
         let nn = n / 2;
@@ -82,36 +82,37 @@ impl<F: PrimeField, P: EcFftParameters<F>> EcFftPrecomputation<F, P> {
         ans.append(&mut ans_right);
         ans
     }
+}
 
-    // L = S u S' -> s u s'
-    //
-    pub fn evaluate_over_domain(&self, poly: &DensePolynomial<F>, log_n: usize) -> Vec<F> {
-        if log_n == 0 {
-            return vec![poly.coeffs[0]];
-        }
-        let n = 1 << log_n;
-        assert!(poly.len() <= n);
-        let mut coeffs = poly.coeffs.clone();
-        coeffs.resize(n, F::zero());
-        let low = coeffs[..n / 2].to_vec();
-        let high = coeffs[n / 2..].to_vec();
-        let low_evals = self.evaluate_over_domain(&DensePolynomial { coeffs: low }, log_n - 1);
-        let high_evals = self.evaluate_over_domain(&DensePolynomial { coeffs: high }, log_n - 1);
-        let low_evals_prime = self.extend(&low_evals);
-        let high_evals_prime = self.extend(&high_evals);
-        dbg!(poly);
-        dbg!(&low_evals, &high_evals, &low_evals_prime, &high_evals_prime);
-
-        let EcFftPrecomputationStep { s, s_prime, .. } = &self.steps[P::LOG_N - 1 - log_n];
-        debug_assert_eq!(s.len(), n);
-        let mut ans = Vec::new();
-        for i in 0..n / 2 {
-            ans.push(low_evals[i] + s[2 * i].pow([n as u64 / 2]) * high_evals[i]);
-            ans.push(low_evals_prime[i] + s[2 * i + 1].pow([n as u64 / 2]) * high_evals_prime[i]);
-        }
-
-        ans
+pub fn evaluate_over_domain<F: PrimeField, P: EcFftParameters<F>>(
+    poly: &DensePolynomial<F>,
+    precomputations: &[EcFftPrecomputation<F, P>],
+) -> Vec<F> {
+    if precomputations[0].steps.is_empty() {
+        return vec![poly.coeffs[0]];
     }
+    let s = &precomputations[0].steps[0].s;
+    let n = s.len();
+    let log_n = n.trailing_zeros();
+    if log_n == 0 {
+        return vec![poly.coeffs[0]];
+    }
+    let mut coeffs = poly.coeffs.clone();
+    coeffs.resize(n, F::zero());
+    let low = coeffs[..n / 2].to_vec();
+    let high = coeffs[n / 2..].to_vec();
+    let low_evals = evaluate_over_domain(&DensePolynomial { coeffs: low }, &precomputations[1..]);
+    let high_evals = evaluate_over_domain(&DensePolynomial { coeffs: high }, &precomputations[1..]);
+    let low_evals_prime = precomputations[1].extend(&low_evals);
+    let high_evals_prime = precomputations[1].extend(&high_evals);
+
+    let mut ans = Vec::new();
+    for i in 0..n / 2 {
+        ans.push(low_evals[i] + s[2 * i].pow([n as u64 / 2]) * high_evals[i]);
+        ans.push(low_evals_prime[i] + s[2 * i + 1].pow([n as u64 / 2]) * high_evals_prime[i]);
+    }
+
+    ans
 }
 
 #[cfg(test)]
@@ -144,7 +145,7 @@ mod tests {
 
     #[test]
     fn test_extend() {
-        let precomputation = Bn254EcFftParameters::precompute();
+        let precomputation = Bn254EcFftParameters::precompute(Bn254EcFftParameters::coset());
         for i in 1..Bn254EcFftParameters::LOG_N {
             test_extend_i::<F, _>(i, &precomputation);
         }
@@ -152,29 +153,31 @@ mod tests {
 
     fn test_eval_i<F: PrimeField, P: EcFftParameters<F>>(
         i: usize,
-        precomputation: &EcFftPrecomputation<F, P>,
+        precomputations: &[EcFftPrecomputation<F, P>],
     ) where
         Standard: Distribution<F>,
     {
-        let n = 1 << i;
-        let mut rng = test_rng();
-        let coeffs: Vec<F> = (0..n).map(|_| rng.gen()).collect();
-        let poly = DensePolynomial { coeffs };
-        let EcFftPrecomputationStep { s, s_prime, .. } =
-            &precomputation.steps[Bn254EcFftParameters::LOG_N - 1 - i];
-        let domain = (0..n / 2)
-            .map(|i| [s[i], s_prime[i]])
-            .flatten()
-            .collect::<Vec<_>>();
-        let evals = s.iter().map(|x| poly.evaluate(x)).collect::<Vec<_>>();
-        assert_eq!(evals, precomputation.evaluate_over_domain(&poly, i));
     }
 
     #[test]
     fn test_eval() {
-        let precomputation = Bn254EcFftParameters::precompute();
-        for i in 2..=Bn254EcFftParameters::LOG_N {
-            test_eval_i::<F, _>(i, &precomputation);
+        type P = Bn254EcFftParameters;
+        let mut coset = P::coset();
+        let mut precomputations = Vec::new();
+        for _ in 0..P::LOG_N {
+            precomputations.push(P::precompute(coset.clone()));
+            coset = coset.into_iter().step_by(2).collect();
+        }
+        for i in 0..P::LOG_N - 1 {
+            let mut rng = test_rng();
+            let coeffs: Vec<F> = (0..P::N >> (i + 1)).map(|_| rng.gen()).collect();
+            let poly = DensePolynomial { coeffs };
+            let EcFftPrecomputationStep { s, .. } = &precomputations[i].steps[0];
+            let now = std::time::Instant::now();
+            let evals = s.iter().map(|x| poly.evaluate(x)).collect::<Vec<_>>();
+            dbg!(now.elapsed().as_secs_f32());
+            assert_eq!(evals, evaluate_over_domain(&poly, &precomputations[i..]));
+            dbg!(now.elapsed().as_secs_f32());
         }
     }
 }

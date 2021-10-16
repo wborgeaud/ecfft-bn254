@@ -57,8 +57,9 @@ impl EcFftParameters<F> for Bn254EcFftParameters {
             .collect()
     }
 
-    fn precompute() -> EcFftPrecomputation<F, Self> {
-        let coset = Self::coset();
+    fn precompute(coset: Vec<F>) -> EcFftPrecomputation<F, Self> {
+        let n = coset.len();
+        let log_n = n.trailing_zeros() as usize;
         let isogenies = Self::isogenies();
         debug_assert_eq!(isogenies.len(), Self::LOG_N - 1);
 
@@ -66,11 +67,11 @@ impl EcFftParameters<F> for Bn254EcFftParameters {
         let mut s_prime = coset.iter().skip(1).step_by(2).copied().collect::<Vec<_>>();
 
         let mut steps = Vec::new();
-        for i in (1..Self::LOG_N).rev() {
+        for i in (1..log_n).rev() {
             let n = 1 << i;
             let nn = n / 2;
             let q = nn - 1;
-            let psi = isogenies[Self::LOG_N - 1 - i];
+            let psi = isogenies[log_n - 1 - i];
             let mut matrices = Vec::new();
             let mut inverse_matrices = Vec::new();
             for j in 0..nn {
@@ -132,6 +133,12 @@ mod tests {
 
     #[test]
     fn test_precompute() {
-        Bn254EcFftParameters::precompute();
+        Bn254EcFftParameters::precompute(Bn254EcFftParameters::coset());
+        Bn254EcFftParameters::precompute(
+            Bn254EcFftParameters::coset()
+                .into_iter()
+                .step_by(2)
+                .collect(),
+        );
     }
 }
