@@ -113,9 +113,12 @@ impl EcFftParameters<F> for Bn254EcFftParameters {
             s = s.into_iter().take(nn).map(|x| psi.eval(x)).collect();
             s_prime = s_prime.into_iter().take(nn).map(|x| psi.eval(x)).collect();
         }
+        debug_assert_eq!((s.len(), s_prime.len()), (1, 1));
 
         EcFftPrecomputation {
             steps,
+            final_s: s[0],
+            final_s_prime: s_prime[0],
             _phantom: PhantomData,
         }
     }
