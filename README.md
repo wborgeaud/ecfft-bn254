@@ -39,9 +39,9 @@ To implement the ECFFT for other fields, similar precomputations should be perfo
 
 Here is a comparison of the running time for the evaluation of a polynomial of degree `n-1` on a domain of `n` points using 3 algorithms:
 
-- the naive evaluation in $O(n^2)$,
-- the classic FFT (on the FFT-friendly BN254 scalar field) in $O(n\log{n})$,
-- the ECFFT ENTER algorithm in $O(n\log^2{n})$.
+- the naive evaluation in `O(n^2)`,
+- the classic FFT (on the FFT-friendly BN254 scalar field) in `O(n * log n)`,
+- the ECFFT ENTER algorithm in `O(n * log^2 n)`.
 
 | `log n` | Naive (ms)  | Classic (ms) | ECFFT (ms) | Naive/ECFFT | ECFFT/Classic |
 | ------- | ----------- | ------------ | ---------- | ----------- | ------------- |
