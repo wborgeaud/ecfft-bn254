@@ -121,7 +121,7 @@ pub struct EcFftPrecomputation<F: PrimeField, P: EcFftParameters<F>> {
 
 impl<F: PrimeField, P: EcFftParameters<F>> EcFftCosetPrecomputation<F, P> {
     /// From `evals` the evaluations of a polynomial on `self.steps[0].s`,
-    /// return the evaluations of the polynomial on `self.steps[0].s_prime` in `O(nlogn)`.
+    /// return the evaluations of the polynomial on `self.steps[0].s_prime` in `O(n * log n)`.
     /// See https://solvable.group/posts/ecfft/ for a simple explanation of this function.
     pub fn extend(&self, evals: &[F]) -> Vec<F> {
         let n = evals.len();
@@ -177,7 +177,7 @@ impl<F: PrimeField, P: EcFftParameters<F>> EcFftCosetPrecomputation<F, P> {
 }
 
 impl<F: PrimeField, P: EcFftParameters<F>> EcFftPrecomputation<F, P> {
-    /// Evaluates polynomial of degree `<n` on the sub-coset of size `n` in O(nlog^2n).
+    /// Evaluates polynomial of degree `<n` on the sub-coset of size `n` in O(n * log^2 n).
     /// Expects the polynomial to have a power of two coefficients, so one may need to resize with zeros before calling this.
     pub fn evaluate_over_domain(&self, poly: &DensePolynomial<F>) -> Vec<F> {
         let n = poly.len();
