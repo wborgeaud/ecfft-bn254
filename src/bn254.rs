@@ -1,7 +1,9 @@
 use std::{convert::TryInto, marker::PhantomData};
 
 use crate::{
-    ecfft::{EcFftParameters, EcFftPrecomputation, EcFftPrecomputationStep},
+    ecfft::{
+        EcFftCosetPrecomputation, EcFftParameters, EcFftPrecomputation, EcFftPrecomputationStep,
+    },
     utils::{isogeny::Isogeny, matrix::Matrix},
 };
 use ark_ff::{BigInteger256, Field};
@@ -57,7 +59,7 @@ impl EcFftParameters<F> for Bn254EcFftParameters {
             .collect()
     }
 
-    fn precompute(coset: Vec<F>) -> EcFftPrecomputation<F, Self> {
+    fn precompute_on_coset(coset: &[F]) -> EcFftCosetPrecomputation<F, Self> {
         let n = coset.len();
         let log_n = n.trailing_zeros() as usize;
         let isogenies = Self::isogenies();
@@ -116,11 +118,11 @@ impl EcFftParameters<F> for Bn254EcFftParameters {
         }
         debug_assert_eq!((s.len(), s_prime.len()), (1, 1));
 
-        EcFftPrecomputation {
+        EcFftCosetPrecomputation {
+            coset: coset.to_vec(),
             steps,
             final_s: s[0],
             final_s_prime: s_prime[0],
-            _phantom: PhantomData,
         }
     }
 }
@@ -133,12 +135,12 @@ mod tests {
 
     #[test]
     fn test_precompute() {
-        Bn254EcFftParameters::precompute(Bn254EcFftParameters::coset());
-        Bn254EcFftParameters::precompute(
-            Bn254EcFftParameters::coset()
+        Bn254EcFftParameters::precompute_on_coset(&Bn254EcFftParameters::coset());
+        Bn254EcFftParameters::precompute_on_coset(
+            &Bn254EcFftParameters::coset()
                 .into_iter()
                 .step_by(2)
-                .collect(),
+                .collect::<Vec<_>>(),
         );
     }
 }
