@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use ark_ff::PrimeField;
-use ark_poly::{univariate::DensePolynomial, Polynomial};
+use ark_poly::univariate::DensePolynomial;
 
 use crate::utils::{isogeny::Isogeny, matrix::Matrix};
 
@@ -149,14 +149,6 @@ mod tests {
         for i in 1..Bn254EcFftParameters::LOG_N {
             test_extend_i::<F, _>(i, &precomputation);
         }
-    }
-
-    fn test_eval_i<F: PrimeField, P: EcFftParameters<F>>(
-        i: usize,
-        precomputations: &[EcFftPrecomputation<F, P>],
-    ) where
-        Standard: Distribution<F>,
-    {
     }
 
     #[test]
