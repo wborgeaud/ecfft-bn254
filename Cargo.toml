@@ -1,9 +1,8 @@
 [package]
-name = "ark-ecfft"
+name = "ecfft-bn254"
 version = "0.1.0"
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["William Borgeaud <williamborgeaud@gmail.com>"]
 
 [dependencies]
 ark-ff = "0.3.0"

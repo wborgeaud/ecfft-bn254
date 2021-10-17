@@ -1,12 +1,12 @@
 use std::time::Duration;
 
 use ark_bn254::Fr;
-use ark_ecfft::bn254::{Bn254EcFftParameters, F};
-use ark_ecfft::ecfft::EcFftParameters;
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::{EvaluationDomain, Polynomial, Radix2EvaluationDomain};
 use ark_std::{rand::Rng, test_rng};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use ecfft_bn254::bn254::{Bn254EcFftParameters, F};
+use ecfft_bn254::ecfft::EcFftParameters;
 
 fn evaluations(c: &mut Criterion) {
     type P = Bn254EcFftParameters;
