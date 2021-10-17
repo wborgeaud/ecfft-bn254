@@ -4,7 +4,7 @@ def to_limbs(x):
 
 p = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
 F = GF(p)
-a,b = 1 ,5612291247948481584627780310922020304781354847659642188369727566000581075360
+a, b = 1, 5612291247948481584627780310922020304781354847659642188369727566000581075360
 E = EllipticCurve(F, [a,b])
 n = E.order().p_primary_part(2)
 log_n = n.log(2)
@@ -20,7 +20,7 @@ S = [L[i] for i in range(0, n, 2)]
 S_prime = [L[i] for i in range(1, n, 2)]
 
 s = "\n".join([str(l) for x in L for l in to_limbs(int(x))])
-open('yo', 'w').write(s)
+open('bn254_coset', 'w').write(s)
 
 def isogenies(log_n, S, S_prime, E):
     isos = []
@@ -42,6 +42,6 @@ def isogenies(log_n, S, S_prime, E):
 isos = isogenies(log_n-1, S, S_prime, E)
 print(len(isos))
 s = "\n".join([str(l) for psi in isos for coeff in list(psi.numerator())+list(psi.denominator()) for l in to_limbs(int(coeff))])
-open('ya', 'w').write(s)
+open('bn254_isogenies', 'w').write(s)
 
 

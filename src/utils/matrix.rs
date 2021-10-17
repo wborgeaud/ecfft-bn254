@@ -1,9 +1,11 @@
 use ark_ff::PrimeField;
 
 #[derive(Clone, Copy)]
+/// 2x2 matrix.
 pub struct Matrix<T>(pub [[T; 2]; 2]);
 
 impl<F: PrimeField> Matrix<F> {
+    /// Inverse of the matrix. Panics if the matrix is not invertible.
     pub fn inverse(&self) -> Self {
         let [[a, b], [c, d]] = self.0;
         let det = a * d - b * c;
@@ -11,6 +13,7 @@ impl<F: PrimeField> Matrix<F> {
     }
 
     #[allow(clippy::many_single_char_names)]
+    /// Multiply a vector of 2 field elements by the matrix.
     pub fn multiply(&self, v: [F; 2]) -> [F; 2] {
         let [[a, b], [c, d]] = self.0;
         let [x, y] = v;

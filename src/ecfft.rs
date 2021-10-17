@@ -24,7 +24,70 @@ pub trait EcFftParameters<F: PrimeField>: Sized {
     fn isogenies() -> Vec<Isogeny<F>>;
 
     /// Computes the ECFFT precomputations on a given coset.
-    fn precompute_on_coset(coset: &[F]) -> EcFftCosetPrecomputation<F, Self>;
+    fn precompute_on_coset(coset: &[F]) -> EcFftCosetPrecomputation<F, Self> {
+        let n = coset.len();
+        let log_n = n.trailing_zeros() as usize;
+        let isogenies = Self::isogenies();
+        debug_assert_eq!(isogenies.len(), Self::LOG_N - 1);
+
+        let mut s = coset.iter().step_by(2).copied().collect::<Vec<_>>();
+        let mut s_prime = coset.iter().skip(1).step_by(2).copied().collect::<Vec<_>>();
+
+        let mut steps = Vec::new();
+        for i in (1..log_n).rev() {
+            let n = 1 << i;
+            let nn = n / 2;
+            let q = nn - 1;
+            let psi = isogenies[log_n - 1 - i];
+            let mut matrices = Vec::new();
+            let mut inverse_matrices = Vec::new();
+            for j in 0..nn {
+                let (s0, s1) = (s[j], s[j + nn]);
+                debug_assert_eq!(psi.eval(s0), psi.eval(s1));
+                inverse_matrices.push(
+                    Matrix([
+                        [
+                            psi.eval_den(s0).pow([q as u64]),
+                            s0 * psi.eval_den(s0).pow([q as u64]),
+                        ],
+                        [
+                            psi.eval_den(s1).pow([q as u64]),
+                            s1 * psi.eval_den(s1).pow([q as u64]),
+                        ],
+                    ])
+                    .inverse(),
+                );
+
+                let (s0, s1) = (s_prime[j], s_prime[j + nn]);
+                debug_assert_eq!(psi.eval(s0), psi.eval(s1));
+                matrices.push(Matrix([
+                    [
+                        psi.eval_den(s0).pow([q as u64]),
+                        s0 * psi.eval_den(s0).pow([q as u64]),
+                    ],
+                    [
+                        psi.eval_den(s1).pow([q as u64]),
+                        s1 * psi.eval_den(s1).pow([q as u64]),
+                    ],
+                ]));
+            }
+            steps.push(EcFftPrecomputationStep::<F, Self> {
+                s: s.clone(),
+                s_prime: s_prime.clone(),
+                matrices,
+                inverse_matrices,
+                _phantom: PhantomData,
+            });
+            s = s.into_iter().take(nn).map(|x| psi.eval(x)).collect();
+            s_prime = s_prime.into_iter().take(nn).map(|x| psi.eval(x)).collect();
+        }
+        debug_assert_eq!((s.len(), s_prime.len()), (1, 1));
+
+        EcFftCosetPrecomputation {
+            coset: coset.to_vec(),
+            steps,
+        }
+    }
 
     /// Computes the ECFFT precomputations of all `Self::sub_coset(i)`.
     fn precompute() -> EcFftPrecomputation<F, Self> {
