@@ -1,9 +1,7 @@
 use std::{convert::TryInto, marker::PhantomData};
 
 use crate::{
-    ecfft::{
-        EcFftCosetPrecomputation, EcFftParameters, EcFftPrecomputation, EcFftPrecomputationStep,
-    },
+    ecfft::{EcFftCosetPrecomputation, EcFftParameters, EcFftPrecomputationStep},
     utils::{isogeny::Isogeny, matrix::Matrix},
 };
 use ark_ff::{BigInteger256, Field};
@@ -121,8 +119,6 @@ impl EcFftParameters<F> for Bn254EcFftParameters {
         EcFftCosetPrecomputation {
             coset: coset.to_vec(),
             steps,
-            final_s: s[0],
-            final_s_prime: s_prime[0],
         }
     }
 }
@@ -182,12 +178,12 @@ mod tests {
     fn test_eval() {
         type P = Bn254EcFftParameters;
         let precomputation = P::precompute();
-        for i in 0..P::LOG_N - 1 {
+        for i in 0..P::LOG_N {
             let mut rng = test_rng();
-            let coeffs: Vec<F> = (0..P::N >> (i + 1)).map(|_| rng.gen()).collect();
+            let coeffs: Vec<F> = (0..P::N >> i).map(|_| rng.gen()).collect();
             let poly = DensePolynomial { coeffs };
             let now = std::time::Instant::now();
-            let evals = P::sub_coset(i + 1)
+            let evals = P::sub_coset(i)
                 .iter()
                 .map(|x| poly.evaluate(x))
                 .collect::<Vec<_>>();

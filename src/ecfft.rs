@@ -6,19 +6,27 @@ use ark_poly::univariate::DensePolynomial;
 use crate::utils::{isogeny::Isogeny, matrix::Matrix};
 
 pub trait EcFftParameters<F: PrimeField>: Sized {
+    /// Logarithm of the size of the maximal ECFFT coset in the curve.
     const LOG_N: usize;
+    /// Size of the maximal ECFFT coset in the curve.
     const N: usize = 1 << Self::LOG_N;
 
+    /// Maximal ECFFT coset in the curve.
     fn coset() -> Vec<F>;
 
+    /// `Self::coset()[::i]`
     fn sub_coset(i: usize) -> Vec<F> {
         Self::coset().into_iter().step_by(1 << i).collect()
     }
 
+    /// Isogenies of degree 2 used to compute the ECFFT.
+    /// They form a chain of isogenies `E -> E' -> E'' -> ...` starting from the orignal curve.
     fn isogenies() -> Vec<Isogeny<F>>;
 
+    /// Computes the ECFFT precomputations on a given coset.
     fn precompute_on_coset(coset: &[F]) -> EcFftCosetPrecomputation<F, Self>;
 
+    /// Computes the ECFFT precomputations of all `Self::sub_coset(i)`.
     fn precompute() -> EcFftPrecomputation<F, Self> {
         let mut coset_precomputations = Vec::new();
         let mut coset = Self::coset();
@@ -42,8 +50,6 @@ pub struct EcFftPrecomputationStep<F: PrimeField, P: EcFftParameters<F>> {
 pub struct EcFftCosetPrecomputation<F: PrimeField, P: EcFftParameters<F>> {
     pub coset: Vec<F>,
     pub steps: Vec<EcFftPrecomputationStep<F, P>>,
-    pub final_s: F,
-    pub final_s_prime: F,
 }
 
 pub struct EcFftPrecomputation<F: PrimeField, P: EcFftParameters<F>> {
@@ -51,6 +57,9 @@ pub struct EcFftPrecomputation<F: PrimeField, P: EcFftParameters<F>> {
 }
 
 impl<F: PrimeField, P: EcFftParameters<F>> EcFftCosetPrecomputation<F, P> {
+    /// From `evals` the evaluations of a polynomial on `self.steps[0].s`,
+    /// return the evaluations of the polynomial on `self.steps[0].s_prime` in `O(nlogn)`.
+    /// See https://solvable.group/posts/ecfft/ for a simple explanation of this function.
     pub fn extend(&self, evals: &[F]) -> Vec<F> {
         let n = evals.len();
         if n == 1 {
@@ -105,6 +114,8 @@ impl<F: PrimeField, P: EcFftParameters<F>> EcFftCosetPrecomputation<F, P> {
 }
 
 impl<F: PrimeField, P: EcFftParameters<F>> EcFftPrecomputation<F, P> {
+    /// Evaluates polynomial of degree `<n` on the sub-coset of size `n` in O(nlog^2n).
+    /// Expects the polynomial to have a power of two coefficients, so one may need to resize with zeros before calling this.
     pub fn evaluate_over_domain(&self, poly: &DensePolynomial<F>) -> Vec<F> {
         let n = poly.len();
         if n == 1 {
@@ -116,7 +127,11 @@ impl<F: PrimeField, P: EcFftParameters<F>> EcFftPrecomputation<F, P> {
             "The number of coefficients should be a power of 2."
         );
         let log_n = n.trailing_zeros() as usize;
-        assert!(log_n <= P::LOG_N,);
+        assert!(
+            log_n <= P::LOG_N,
+            "The polynomial can have degree at most {}.",
+            1 << P::LOG_N
+        );
         let precomputations = &self.coset_precomputations;
         let low = poly.coeffs[..n / 2].to_vec();
         let high = poly.coeffs[n / 2..].to_vec();
