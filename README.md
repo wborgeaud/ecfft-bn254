@@ -29,6 +29,7 @@ fn test_evaluations() {
 
 ### Precomputations
 The implementation uses precomputations for the coset and isogenies used in the ECFFT. These precomputations are computed in `get_params.sage` and are stored in the `bn254_coset` and `bn254_isogenies` files.
+
 To implement the ECFFT for other fields, similar precomputations should be performed.
 
 ### References
