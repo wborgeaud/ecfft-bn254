@@ -1,9 +1,9 @@
 import sys
 
 
-def to_limbs(x):
+def to_limbs(x, n):
     mask = 2 ^ 64 - 1
-    return [(x >> (64 * i)) & mask for i in range(4)]
+    return [(x >> (64 * i)) & mask for i in range(n)]
 
 
 def curve_params():
@@ -34,7 +34,6 @@ generates parameters for the BN254 curve.
 
 
 p, a, b, filename = curve_params()
-print(p, a, b, filename)
 F = GF(p)
 E = EllipticCurve(F, [a, b])
 n = E.order().p_primary_part(2)
@@ -51,7 +50,9 @@ L = [h.xy()[0] for h in H]
 S = [L[i] for i in range(0, n, 2)]
 S_prime = [L[i] for i in range(1, n, 2)]
 
-s = "\n".join([str(l) for x in L for l in to_limbs(int(x))])
+# Number of 64-bit limbs needed to represent field elements
+num_limbs = (p.bit_length() + 63) // 64
+s = "\n".join([str(l) for x in L for l in to_limbs(int(x), num_limbs)])
 open(f"{filename}_coset", "w").write(s)
 
 
@@ -79,7 +80,7 @@ s = "\n".join(
         str(l)
         for psi in isos
         for coeff in list(psi.numerator()) + list(psi.denominator())
-        for l in to_limbs(int(coeff))
+        for l in to_limbs(int(coeff), num_limbs)
     ]
 )
 open(f"{filename}_isogenies", "w").write(s)
