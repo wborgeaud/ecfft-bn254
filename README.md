@@ -37,7 +37,12 @@ The base field of the BLS12-381 curve is also supported, albeit only for polynom
 
 The implementation uses precomputations for the coset and isogenies used in the ECFFT. These precomputations are computed in `get_params.sage` and are stored in the `bn254_coset` and `bn254_isogenies` files.
 
-To implement the ECFFT for other fields, similar precomputations should be performed.
+To implement the ECFFT for other fields, similar precomputations should be performed. For example, here is how to generate the precomputations for BLS12-381:
+
+```bash
+# sage get_params.sage p a b output_filename
+sage get_params.sage 0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab 1 0x1871504cda4fc6f78cc6911e35d3864f6329a1ba844f82fe63d79d0257af1244153f9fe78bf3a7816957e1485709f9fc bls12-381
+```
 
 ### Benchmarks
 
