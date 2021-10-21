@@ -7,9 +7,9 @@ type F = ark_bls12_381::Fq;
 /// Number of 64-bit limbs needed to represent field elements.
 const NUM_LIMBS: usize = 6;
 
-/// ECFFT parameters for the BN254 base field `F`.
+/// ECFFT parameters for the BLS12-381 base field `F`.
 /// Computed with the curve `E = EllipticCurve(F, [a, b])` with
-/// `a, b = 1, 5612291247948481584627780310922020304781354847659642188369727566000581075360`.
+/// `a, b = 1, 0x20a6850fb6b9c0c64cbdd49ef3f69130e4fa56323493e930ffe12f92d80775bd95d64156d8f683ae3df8d3e9a3d1d86
 pub struct Bls12381Parameters;
 
 impl EcFftParameters<F> for Bls12381Parameters {
