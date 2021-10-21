@@ -29,6 +29,10 @@ fn test_evaluations() {
 }
 ```
 
+### BLS12-381
+
+The base field of the BLS12-381 curve is also supported, albeit only for polynomials up to degree 2048 for now. Higher degrees should soon be supported.
+
 ### Precomputations
 
 The implementation uses precomputations for the coset and isogenies used in the ECFFT. These precomputations are computed in `get_params.sage` and are stored in the `bn254_coset` and `bn254_isogenies` files.
