@@ -36,14 +36,21 @@ generates parameters for the BN254 curve.
 p, a, b, filename = curve_params()
 F = GF(p)
 E = EllipticCurve(F, [a, b])
-n = E.order().p_primary_part(2)
+O = E.order()
+n = O.p_primary_part(2)
 log_n = n.log(2)
 print(f"Curve's scalar field 2-adicity: {log_n}")
 
-g = E.gens()[0]
-G = (g.order() // n) * g
-assert G.order() == n
+while True:
+    g = E.random_point()
+    G = (O // n) * g
+    for i in range(log_n):
+        if ((2 ^ i) * G).is_zero():
+            break
+    else:
+        break
 
+assert (n * G).is_zero()
 R = E.random_element()
 H = [R + i * G for i in range(2 ^ log_n)]
 L = [h.xy()[0] for h in H]
