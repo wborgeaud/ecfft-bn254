@@ -31,7 +31,7 @@ fn test_evaluations() {
 
 ### BLS12-381
 
-The base field of the BLS12-381 curve is also supported, albeit only for polynomials up to degree 2048 for now. Higher degrees should soon be supported.
+The base field of the BLS12-381 curve is also supported, also for degrees up to `2^14`. Credits to [Youssef El Housni](https://github.com/yelhousni) for [finding a curve with 2-adicity 14](https://ethresear.ch/t/bw6-over-bls12-381/10321/4).
 
 ### Precomputations
 
@@ -41,7 +41,7 @@ To implement the ECFFT for other fields, similar precomputations should be perfo
 
 ```bash
 # sage get_params.sage p a b output_filename
-sage get_params.sage 0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab 1 0x1871504cda4fc6f78cc6911e35d3864f6329a1ba844f82fe63d79d0257af1244153f9fe78bf3a7816957e1485709f9fc bls12-381
+sage get_params.sage 0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab 0x1800fb41dab7368489a980e14a746abfe7c87588aac25c113301d524b734a5043bbc89dd7d0c5b41de5d348ac2e838c6 0x11c65a0a6e52b8b88366e0b0df28c6804f14f35cb833cb0d918c9e758f044d95777beb965a967af4ef518ad0618a809a bls12-381
 ```
 
 ### Benchmarks
