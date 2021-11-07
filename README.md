@@ -31,7 +31,8 @@ fn test_evaluations() {
 
 ### BLS12-381
 
-The base field of the BLS12-381 curve is also supported, also for degrees up to `2^14`. Credits to [Youssef El Housni](https://github.com/yelhousni) for [finding a curve with 2-adicity 14](https://ethresear.ch/t/bw6-over-bls12-381/10321/4).
+The base field of the BLS12-381 curve is also supported, for degrees up to `2^15`. Credits to [Saulius Grigaitis
+](https://github.com/sauliusgrigaitis) for [finding a curve with 2-adicity 15](https://github.com/wborgeaud/ecfft-bn254/pull/2).
 
 ### Precomputations
 
