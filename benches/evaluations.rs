@@ -1,10 +1,8 @@
-use std::time::Duration;
-
 use ark_bn254::Fr;
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::{EvaluationDomain, Polynomial, Radix2EvaluationDomain};
 use ark_std::{rand::Rng, test_rng};
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode};
 use ecfft_bn254::bn254::{Bn254EcFftParameters, F};
 use ecfft_bn254::ecfft::EcFftParameters;
 
@@ -14,7 +12,8 @@ fn evaluations(c: &mut Criterion) {
     let mut rng = test_rng();
 
     let mut group = c.benchmark_group("evaluations");
-    group.measurement_time(Duration::from_secs(30));
+    // group.measurement_time(Duration::from_secs(30));
+    group.sampling_mode(SamplingMode::Flat);
 
     for log_n in 1..=P::LOG_N {
         group.bench_with_input(BenchmarkId::new("ECFFT", log_n), &log_n, |b, _| {
