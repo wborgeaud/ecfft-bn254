@@ -120,19 +120,20 @@ pub struct EcFftPrecomputation<F: PrimeField, P: EcFftParameters<F>> {
 }
 
 impl<F: PrimeField, P: EcFftParameters<F>> EcFftCosetPrecomputation<F, P> {
+    pub fn extend(&self, evals: &[F]) -> Vec<F> {
+        let mut evals = evals.to_vec();
+        self.extend_helper(&mut evals);
+        evals
+    }
     /// From `evals` the evaluations of a polynomial on `self.steps[0].s`,
     /// return the evaluations of the polynomial on `self.steps[0].s_prime` in `O(n * log n)`.
     /// See https://solvable.group/posts/ecfft/ for a simple explanation of this function.
-    pub fn extend(&self, evals: &[F]) -> Vec<F> {
+    pub fn extend_helper(&self, evals: &mut [F]) {
         let n = evals.len();
         if n == 1 {
-            return evals.to_vec();
+            return;
         }
-        assert_eq!(
-            n & (n - 1),
-            0,
-            "The number of evaluations should be a power of 2."
-        );
+        assert_eq!(n.next_power_of_two(), n, "The number of evaluations should be a power of 2.");
         let log_n = n.trailing_zeros() as usize;
         assert!(
             log_n < P::LOG_N,
@@ -144,34 +145,23 @@ impl<F: PrimeField, P: EcFftParameters<F>> EcFftCosetPrecomputation<F, P> {
         let EcFftPrecomputationStep {
             matrices,
             inverse_matrices,
-            _phantom,
             ..
         } = &self.steps[self.steps.len() - log_n];
         let nn = n / 2;
-        let mut p0_evals = Vec::with_capacity(nn);
-        let mut p1_evals = Vec::with_capacity(nn);
-        for j in 0..nn {
-            let (y0, y1) = (evals[j], evals[j + nn]);
-            let [p0, p1] = inverse_matrices[j].multiply([y0, y1]);
-            p0_evals.push(p0);
-            p1_evals.push(p1);
-        }
-        let p0_evals_prime = self.extend(&p0_evals);
-        let p1_evals_prime = self.extend(&p1_evals);
-        drop(p0_evals);
-        drop(p1_evals);
+        let (p0_evals, p1_evals) = evals.split_at_mut(nn);
 
-        let mut ans= vec![F::zero(); 2 * matrices.len()];
-        for ((i, m), (&p0, &p1)) in matrices
-            .iter()
-            .enumerate()
-            .zip(p0_evals_prime.iter().zip(&p1_evals_prime))
-        {
-            let [x, y] = m.multiply([p0, p1]);
-            ans[i] = x;
-            ans[i + matrices.len()] = y;
+        for (m, (p0, p1)) in inverse_matrices.iter().zip(p0_evals.iter_mut().zip(p1_evals.iter_mut())) {
+            m.multiply_in_place(p0, p1);
         }
-        ans
+        self.extend_helper(p0_evals);
+        self.extend_helper(p1_evals);
+
+        for (m, (p0, p1)) in matrices
+            .iter()
+            .zip(p0_evals.iter_mut().zip(p1_evals.iter_mut()))
+        {
+            m.multiply_in_place(p0, p1)
+        }
     }
 }
 
@@ -180,22 +170,21 @@ impl<F: PrimeField, P: EcFftParameters<F>> EcFftPrecomputation<F, P> {
     /// Expects the polynomial to have a power of two coefficients, so one may need to resize with zeros before calling this.
     pub fn evaluate_over_domain(&self, poly: &DensePolynomial<F>) -> Vec<F> {
         let mut evaluations = poly.to_vec();
-        Self::fft_in_place(&self, &mut evaluations);
+        let mut scratch1 = poly.coeffs.clone();
+        let mut scratch2 = poly.coeffs.clone();
+        Self::fft_in_place(&self, &mut evaluations, &mut scratch1, &mut scratch2);
         evaluations
     }
 
     /// Evaluates polynomial of degree `<n` on the sub-coset of size `n` in O(n * log^2 n).
     /// Expects the polynomial to have a power of two coefficients, so one may need to resize with zeros before calling this.
-    pub fn fft_in_place(&self, poly: &mut [F]) {
+    pub fn fft_in_place(&self, poly: &mut [F], out: &mut [F], scratch: &mut [F]) {
         let n = poly.len();
         if n == 1 {
             return;
         }
-        assert_eq!(
-            n & (n - 1),
-            0,
-            "The number of coefficients should be a power of 2."
-        );
+        assert_eq!(n.next_power_of_two(), n, "The number of coefficients should be a power of 2.");
+        
         let log_n = n.trailing_zeros() as usize;
         assert!(
             log_n <= P::LOG_N,
@@ -203,18 +192,23 @@ impl<F: PrimeField, P: EcFftParameters<F>> EcFftPrecomputation<F, P> {
             1 << P::LOG_N
         );
         let precomputations = &self.coset_precomputations;
-        let mut poly2 = poly.to_vec();
-        let (low, high) = poly2.split_at_mut(n/2);
-        self.fft_in_place(low);
-        self.fft_in_place(high);
-        let low_evals_prime = precomputations[P::LOG_N - log_n].extend(&*low);
-        let high_evals_prime = precomputations[P::LOG_N - log_n].extend(&*high);
+        let (low, high) = poly.split_at_mut(n/2);
+        let (low_out, high_out) = out.split_at_mut(n/2);
+        let (low_scratch, high_scratch) = scratch.split_at_mut(n/2);
+        self.fft_in_place(low, low_out, low_scratch);
+        self.fft_in_place(high, high_out, high_scratch);
+        low_scratch.copy_from_slice(low);
+        high_scratch.copy_from_slice(high);
+        low_out.copy_from_slice(low);
+        high_out.copy_from_slice(high);
+        precomputations[P::LOG_N - log_n].extend_helper(low_scratch);
+        precomputations[P::LOG_N - log_n].extend_helper(high_scratch);
 
         let coset = &precomputations[P::LOG_N - log_n].coset;
         assert_eq!(n, coset.len());
         (0..n/2).for_each(|i| {
-            poly[2 * i] = low[i] + coset[2 * i].pow([n as u64 / 2]) * high[i];
-            poly[2 * i + 1] = low_evals_prime[i] + coset[2 * i + 1].pow([n as u64 / 2]) * high_evals_prime[i];
+            poly[2 * i] = low_out[i] + coset[2 * i].pow([n as u64 / 2]) * high_out[i];
+            poly[2 * i + 1] = low_scratch[i] + coset[2 * i + 1].pow([n as u64 / 2]) * high_scratch[i];
         });
     }
 }

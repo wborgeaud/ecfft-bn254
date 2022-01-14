@@ -14,6 +14,7 @@ fn evaluations(c: &mut Criterion) {
     let mut group = c.benchmark_group("evaluations");
     // group.measurement_time(Duration::from_secs(30));
     group.sampling_mode(SamplingMode::Flat);
+    group.sample_size(10);
 
     for log_n in 1..=P::LOG_N {
         group.bench_with_input(BenchmarkId::new("ECFFT", log_n), &log_n, |b, _| {
@@ -21,12 +22,12 @@ fn evaluations(c: &mut Criterion) {
             let poly = DensePolynomial { coeffs };
             b.iter(|| precomputation.evaluate_over_domain(&poly));
         });
-        group.bench_with_input(BenchmarkId::new("Naive", log_n), &log_n, |b, _| {
-            let coeffs: Vec<F> = (0..1 << log_n).map(|_| rng.gen()).collect();
-            let poly = DensePolynomial { coeffs };
-            let coset = P::sub_coset(P::LOG_N - log_n);
-            b.iter(|| coset.iter().map(|x| poly.evaluate(x)).collect::<Vec<_>>());
-        });
+        // group.bench_with_input(BenchmarkId::new("Naive", log_n), &log_n, |b, _| {
+        //     let coeffs: Vec<F> = (0..1 << log_n).map(|_| rng.gen()).collect();
+        //     let poly = DensePolynomial { coeffs };
+        //     let coset = P::sub_coset(P::LOG_N - log_n);
+        //     b.iter(|| coset.iter().map(|x| poly.evaluate(x)).collect::<Vec<_>>());
+        // });
         group.bench_with_input(BenchmarkId::new("Classic", log_n), &log_n, |b, _| {
             let coeffs: Vec<Fr> = (0..1 << log_n).map(|_| rng.gen()).collect();
             let poly = DensePolynomial { coeffs };
