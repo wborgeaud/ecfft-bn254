@@ -125,7 +125,7 @@ impl<F: PrimeField, P: EcFftParameters<F>> EcFftCosetPrecomputation<F, P> {
     /// See https://solvable.group/posts/ecfft/ for a simple explanation of this function.
     pub fn extend(&self, evals: &[F]) -> Vec<F> {
         let mut evals = evals.to_vec();
-        self.extend_helper(&mut evals);
+        self.extend_in_place(&mut evals);
         evals
     }
 
@@ -157,8 +157,8 @@ impl<F: PrimeField, P: EcFftParameters<F>> EcFftCosetPrecomputation<F, P> {
         for (m, (p0, p1)) in inverse_matrices.iter().zip(p0_evals.iter_mut().zip(p1_evals.iter_mut())) {
             m.multiply_in_place(p0, p1);
         }
-        self.extend_helper(p0_evals);
-        self.extend_helper(p1_evals);
+        self.extend_in_place(p0_evals);
+        self.extend_in_place(p1_evals);
 
         for (m, (p0, p1)) in matrices
             .iter()
@@ -205,8 +205,8 @@ impl<F: PrimeField, P: EcFftParameters<F>> EcFftPrecomputation<F, P> {
         high_1.copy_from_slice(high);
         low_2.copy_from_slice(low);
         high_2.copy_from_slice(high);
-        precomputations[P::LOG_N - log_n].extend_helper(low_2);
-        precomputations[P::LOG_N - log_n].extend_helper(high_2);
+        precomputations[P::LOG_N - log_n].extend_in_place(low_2);
+        precomputations[P::LOG_N - log_n].extend_in_place(high_2);
 
         let coset = &precomputations[P::LOG_N - log_n].coset;
         assert_eq!(n, coset.len());
