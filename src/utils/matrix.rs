@@ -19,6 +19,15 @@ impl<F: PrimeField> Matrix<F> {
         let [x, y] = v;
         [a * x + b * y, c * x + d * y]
     }
+
+    #[allow(clippy::many_single_char_names)]
+    /// Multiply a vector of 2 field elements by the matrix.
+    pub fn multiply_in_place(&self, x: &mut F, y: &mut F) {
+        let [[a, b], [c, d]] = self.0;
+        let (a, b) = (a * *x + b * *y, c * *x + d * *y);
+        *x = a;
+        *y = b;
+    }
 }
 
 #[cfg(test)]
