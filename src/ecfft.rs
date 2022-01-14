@@ -120,15 +120,19 @@ pub struct EcFftPrecomputation<F: PrimeField, P: EcFftParameters<F>> {
 }
 
 impl<F: PrimeField, P: EcFftParameters<F>> EcFftCosetPrecomputation<F, P> {
+    /// From `evals` the evaluations of a polynomial on `self.steps[0].s`,
+    /// return the evaluations of the polynomial on `self.steps[0].s_prime` in `O(n * log n)`.
+    /// See https://solvable.group/posts/ecfft/ for a simple explanation of this function.
     pub fn extend(&self, evals: &[F]) -> Vec<F> {
         let mut evals = evals.to_vec();
         self.extend_helper(&mut evals);
         evals
     }
-    /// From `evals` the evaluations of a polynomial on `self.steps[0].s`,
-    /// return the evaluations of the polynomial on `self.steps[0].s_prime` in `O(n * log n)`.
+
+    /// Mutate `evals`, which contains the evaluations of a polynomial on `self.steps[0].s`,
+    /// to store the evaluations of the polynomial on `self.steps[0].s_prime` in `O(n * log n)`.
     /// See https://solvable.group/posts/ecfft/ for a simple explanation of this function.
-    pub fn extend_helper(&self, evals: &mut [F]) {
+    pub fn extend_in_place(&self, evals: &mut [F]) {
         let n = evals.len();
         if n == 1 {
             return;
@@ -172,13 +176,13 @@ impl<F: PrimeField, P: EcFftParameters<F>> EcFftPrecomputation<F, P> {
         let mut evaluations = poly.to_vec();
         let mut scratch1 = poly.coeffs.clone();
         let mut scratch2 = poly.coeffs.clone();
-        Self::fft_in_place(&self, &mut evaluations, &mut scratch1, &mut scratch2);
+        self.ecfft_in_place(&mut evaluations, &mut scratch1, &mut scratch2);
         evaluations
     }
 
     /// Evaluates polynomial of degree `<n` on the sub-coset of size `n` in O(n * log^2 n).
     /// Expects the polynomial to have a power of two coefficients, so one may need to resize with zeros before calling this.
-    pub fn fft_in_place(&self, poly: &mut [F], out: &mut [F], scratch: &mut [F]) {
+    pub fn ecfft_in_place(&self, poly: &mut [F], scratch1: &mut [F], scratch2: &mut [F]) {
         let n = poly.len();
         if n == 1 {
             return;
@@ -193,22 +197,22 @@ impl<F: PrimeField, P: EcFftParameters<F>> EcFftPrecomputation<F, P> {
         );
         let precomputations = &self.coset_precomputations;
         let (low, high) = poly.split_at_mut(n/2);
-        let (low_out, high_out) = out.split_at_mut(n/2);
-        let (low_scratch, high_scratch) = scratch.split_at_mut(n/2);
-        self.fft_in_place(low, low_out, low_scratch);
-        self.fft_in_place(high, high_out, high_scratch);
-        low_scratch.copy_from_slice(low);
-        high_scratch.copy_from_slice(high);
-        low_out.copy_from_slice(low);
-        high_out.copy_from_slice(high);
-        precomputations[P::LOG_N - log_n].extend_helper(low_scratch);
-        precomputations[P::LOG_N - log_n].extend_helper(high_scratch);
+        let (low_1, high_1) = scratch1.split_at_mut(n/2);
+        let (low_2, high_2) = scratch2.split_at_mut(n/2);
+        self.ecfft_in_place(low, low_1, low_2);
+        self.ecfft_in_place(high, high_1, high_2);
+        low_1.copy_from_slice(low);
+        high_1.copy_from_slice(high);
+        low_2.copy_from_slice(low);
+        high_2.copy_from_slice(high);
+        precomputations[P::LOG_N - log_n].extend_helper(low_2);
+        precomputations[P::LOG_N - log_n].extend_helper(high_2);
 
         let coset = &precomputations[P::LOG_N - log_n].coset;
         assert_eq!(n, coset.len());
         (0..n/2).for_each(|i| {
-            poly[2 * i] = low_out[i] + coset[2 * i].pow([n as u64 / 2]) * high_out[i];
-            poly[2 * i + 1] = low_scratch[i] + coset[2 * i + 1].pow([n as u64 / 2]) * high_scratch[i];
+            poly[2 * i] = low_1[i] + coset[2 * i].pow([n as u64 / 2]) * high_1[i];
+            poly[2 * i + 1] = low_2[i] + coset[2 * i + 1].pow([n as u64 / 2]) * high_2[i];
         });
     }
 }

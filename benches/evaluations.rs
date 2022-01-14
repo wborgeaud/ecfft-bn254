@@ -1,8 +1,8 @@
 use ark_bn254::Fr;
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::{EvaluationDomain, Polynomial, Radix2EvaluationDomain};
-use ark_std::{rand::Rng, test_rng};
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode};
+use ark_std::{rand::Rng, test_rng, time::Duration};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use ecfft_bn254::bn254::{Bn254EcFftParameters, F};
 use ecfft_bn254::ecfft::EcFftParameters;
 
@@ -12,11 +12,9 @@ fn evaluations(c: &mut Criterion) {
     let mut rng = test_rng();
 
     let mut group = c.benchmark_group("evaluations");
-    // group.measurement_time(Duration::from_secs(30));
-    group.sampling_mode(SamplingMode::Flat);
-    group.sample_size(10);
+    group.measurement_time(Duration::from_secs(30));
 
-    for log_n in 10..=P::LOG_N {
+    for log_n in 1..=P::LOG_N {
         group.bench_with_input(BenchmarkId::new("ECFFT", log_n), &log_n, |b, _| {
             let coeffs: Vec<F> = (0..1 << log_n).map(|_| rng.gen()).collect();
             let poly = DensePolynomial { coeffs };
