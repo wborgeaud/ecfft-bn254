@@ -8,6 +8,7 @@ authors = ["William Borgeaud <williamborgeaud@gmail.com>"]
 ark-ff = "0.4.0"
 ark-bn254 = "0.4.0"
 ark-bls12-381 = "0.4.0"
+ark-curve25519 = "0.4.0"
 ark-std = "0.4.0"
 ark-poly = "0.4.0"
 
