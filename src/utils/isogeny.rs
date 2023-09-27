@@ -1,15 +1,15 @@
-use ark_ff::PrimeField;
+use ark_ff::Field;
 
 #[derive(Debug, Clone, Copy)]
 /// X-coordinate of an isogeny of degree 2.
-pub struct Isogeny<F: PrimeField> {
+pub struct Isogeny<F: Field> {
     /// Coefficients of the isogeny's numerator.
     pub numerator: [F; 3],
     /// Coefficients of the isogeny's denominator.
     pub denominator: [F; 2],
 }
 
-impl<F: PrimeField> Isogeny<F> {
+impl<F: Field> Isogeny<F> {
     /// Evaluate the (x-coordinate of the) isogeny on a field element.
     pub fn eval(&self, x: F) -> F {
         let Isogeny {
