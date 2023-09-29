@@ -78,9 +78,7 @@ mod tests {
     use crate::ecfft::{EcFftCosetPrecomputation, EcFftParameters, EcFftPrecomputationStep};
 
     use crate::bn254::{Bn254EcFftParameters, F};
-    use ark_ff::{One, PrimeField, Zero};
-    use ark_poly::univariate::DenseOrSparsePolynomial;
-    use ark_poly::DenseUVPolynomial;
+    use ark_ff::PrimeField;
     use ark_poly::{univariate::DensePolynomial, Polynomial};
     use ark_std::{
         rand::{distributions::Standard, prelude::Distribution, Rng},
@@ -129,16 +127,6 @@ mod tests {
     }
 
     #[test]
-    /// Tests constructing vanishing polynomial on first moeity of coset.
-    fn test_vanish() {
-        let precomputation =
-            Bn254EcFftParameters::precompute_on_coset(&Bn254EcFftParameters::coset());
-        for step in precomputation.steps.iter().rev() {
-            println!("step: {:?}", step.vanish_on_s_prime);
-        }
-    }
-
-    #[test]
     /// Tests the `evaluate_over_domain` function for various degrees.
     fn test_eval() {
         type P = Bn254EcFftParameters;
@@ -159,36 +147,30 @@ mod tests {
     }
 
     #[test]
-    /// Tests the `redc` function for various degrees.
-    fn test_redc() {
+    /// Tests the `evaluate_over_domain` function for various degrees.
+    fn test_interpolate() {
         type P = Bn254EcFftParameters;
         let precomputation = P::precompute();
-        for i in 0..P::LOG_N {
-            let n = 2usize.pow(i as u32);
-            let log_n = n.trailing_zeros() as usize;
-            let coset = &precomputation.coset_precomputations[P::LOG_N - log_n].coset;
-            let s = coset.iter().step_by(2).copied().collect::<Vec<F>>();
-            let mut x_to_nn = DensePolynomial::from_coefficients_slice(&[F::zero(), F::one()]);
-            for _ in 0..log_n - 1 {
-                x_to_nn = &x_to_nn * &x_to_nn;
-            }
-            let vanish_on_s = s
-                .iter()
-                .map(|s| DensePolynomial::from_coefficients_slice(&[-*s, F::one()]))
-                .fold(
-                    DensePolynomial::from_coefficients_slice(&[F::one()]),
-                    |acc, poly| &acc * &poly,
-                );
+        for i in (0..P::LOG_N).rev() {
             let mut rng = test_rng();
-            let poly = DensePolynomial::rand(n - 1, &mut rng);
-            let evals = precomputation.evaluate_over_domain(&poly);
-            let redc_evals = precomputation.redc(&evals);
-            let redc_poly_no_mod = &poly / &vanish_on_s;
-            let redc_wrapped = DenseOrSparsePolynomial::from(&redc_poly_no_mod);
-            let x_nn = DenseOrSparsePolynomial::from(&x_to_nn);
-            let redc_poly = redc_wrapped.divide_with_q_and_r(&x_nn).unwrap().1;
-            let redc_evals_from_poly = precomputation.evaluate_over_domain(&redc_poly);
-            assert_eq!(redc_evals, redc_evals_from_poly);
+            let coeffs: Vec<F> = (0..P::N >> i).map(|_| rng.gen()).collect();
+            let poly = DensePolynomial {
+                coeffs: coeffs.clone(),
+            };
+
+            let evals = P::sub_coset(i)
+                .iter()
+                .map(|x| poly.evaluate(x))
+                .collect::<Vec<_>>();
+            let now = std::time::Instant::now();
+            let poly_ecfft = precomputation.interpolate(&evals);
+            dbg!(now.elapsed().as_secs_f32());
+            assert_eq!(poly_ecfft, poly);
+            dbg!(now.elapsed().as_secs_f32());
+
+            let poly_ecfft = precomputation.interpolate(&coeffs);
+            let evals = precomputation.evaluate_over_domain(&poly_ecfft);
+            assert_eq!(evals, coeffs);
         }
     }
 }

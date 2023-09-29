@@ -392,7 +392,7 @@ impl<F: PrimeField, P: EcFftParameters<F>> EcFftCosetPrecomputation<F, P> {
     /// Computes the evaluations of Q(x) on coset, where Q(x) is congruent to
     /// P(x)*Z_0(x)^-1 mod X^n/2. We assume evals are input in the same manner as s and s_prime
     /// are calculated.
-    pub fn redc_in_place_xnn(&self, evals: &mut [F]) {
+    fn redc_in_place_xnn(&self, evals: &mut [F]) {
         let n = evals.len();
 
         // If there is only one evaluation then the polynomial is constant and so reduction by X^n/2 does nothing.
@@ -444,17 +444,11 @@ impl<F: PrimeField, P: EcFftParameters<F>> EcFftCosetPrecomputation<F, P> {
         }
     }
 
-    pub fn redc_xnn(&self, evals: &[F]) -> Vec<F> {
-        let mut evals = evals.to_vec();
-        self.redc_in_place_xnn(&mut evals);
-        evals
-    }
-
     /// Performs the REDC algorithm from https://arxiv.org/pdf/2107.08473.pdf
     /// Computes the evaluations of Q(x) on coset, where Q(x) is congruent to
     /// P(x)*Z_0(x)^-1 mod X^n/2. We assume evals are input in the same manner as s and s_prime
     /// are calculated.
-    pub fn redc_in_place_xnnnn(&self, evals: &mut [F]) {
+    fn redc_in_place_xnnnn(&self, evals: &mut [F]) {
         let n = evals.len();
 
         // If there is only one evaluation then the polynomial is constant and so reduction by X^n/2 does nothing.
@@ -506,19 +500,13 @@ impl<F: PrimeField, P: EcFftParameters<F>> EcFftCosetPrecomputation<F, P> {
         }
     }
 
-    pub fn redc_xnnnn(&self, evals: &[F]) -> Vec<F> {
-        let mut evals = evals.to_vec();
-        self.redc_in_place_xnnnn(&mut evals);
-        evals
-    }
-
-    pub fn modulo_xnn(&self, evals: &[F]) -> Vec<F> {
+    fn modulo_xnn(&self, evals: &[F]) -> Vec<F> {
         let mut evals = evals.to_vec();
         self.modulo_in_place_xnn(&mut evals);
         evals
     }
 
-    pub fn modulo_in_place_xnn(&self, evals: &mut [F]) {
+    fn modulo_in_place_xnn(&self, evals: &mut [F]) {
         let n = evals.len();
 
         // If there is only one evaluation then the polynomial is constant and so reduction by X^n/2 does nothing.
@@ -557,7 +545,7 @@ impl<F: PrimeField, P: EcFftParameters<F>> EcFftCosetPrecomputation<F, P> {
         evals
     }
 
-    pub fn modulo_in_place_xnnnn(&self, evals: &mut [F], c_poly_evals: &[F]) {
+    fn modulo_in_place_xnnnn(&self, evals: &mut [F], c_poly_evals: &[F]) {
         let n = evals.len();
 
         // If there is only one evaluation then the polynomial is constant and so reduction by X^n/2 does nothing.

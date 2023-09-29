@@ -278,7 +278,6 @@ mod tests {
         for i in 1..P::LOG_N {
             let coset = &precomputation.coset_precomputations[P::LOG_N - i].coset;
             let n = coset.len();
-            println!("n: {}", n);
             let log_n = n.trailing_zeros() as usize;
             let mut x_to_nn = DensePolynomial::from_coefficients_slice(&[F::zero(), F::one()]);
             for _ in 0..log_n - 1 {
