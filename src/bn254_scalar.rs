@@ -78,7 +78,6 @@ mod tests {
     use crate::ecfft::{EcFftCosetPrecomputation, EcFftParameters, EcFftPrecomputationStep};
 
     use crate::bn254_scalar::{Bn254ScalarEcFftParameters, F};
-    use crate::utils::euclidean_algorithm::extended_gcd_algorithm;
     use ark_ff::{Field, One, PrimeField, Zero};
     use ark_poly::univariate::DenseOrSparsePolynomial;
     use ark_poly::DenseUVPolynomial;
@@ -132,11 +131,22 @@ mod tests {
     #[test]
     /// Tests constructing vanishing polynomial on first moeity of coset.
     fn test_vanish() {
-        let precomputation =
-            Bn254ScalarEcFftParameters::precompute_on_coset(&Bn254ScalarEcFftParameters::coset());
-        for step in precomputation.steps.iter().rev() {
-            let vanish_on_s_prime = step.vanish_on_s_prime.clone();
-            let s = step.s.clone();
+        let precomputation = Bn254ScalarEcFftParameters::precompute();
+        for coset_precomp in precomputation.coset_precomputations.iter() {
+            let s = coset_precomp
+                .coset
+                .iter()
+                .step_by(2)
+                .copied()
+                .collect::<Vec<F>>();
+            let s_prime = coset_precomp
+                .coset
+                .iter()
+                .skip(1)
+                .step_by(2)
+                .copied()
+                .collect::<Vec<F>>();
+
             let vanish_poly = s
                 .into_iter()
                 .map(|s| DensePolynomial::from_coefficients_slice(&[-s, F::one()]))
@@ -144,13 +154,56 @@ mod tests {
                     DensePolynomial::from_coefficients_slice(&[F::one()]),
                     |acc, poly| &acc * &poly,
                 );
-            let s_prime = step.s_prime.clone();
 
             let vanish_on_s_prime_calc = s_prime
                 .iter()
                 .map(|val| vanish_poly.evaluate(val))
                 .collect::<Vec<F>>();
-            assert_eq!(vanish_on_s_prime, vanish_on_s_prime_calc);
+            assert_eq!(coset_precomp.vanish_on_s_prime, vanish_on_s_prime_calc);
+        }
+    }
+
+    #[test]
+    /// Tests constructing vanishing polynomial on first moeity of coset.
+    fn test_vanish_squared_rem_xnn() {
+        let precomputation = Bn254ScalarEcFftParameters::precompute();
+        for coset_precomp in precomputation.coset_precomputations.iter().rev() {
+            let s = coset_precomp
+                .coset
+                .iter()
+                .step_by(2)
+                .copied()
+                .collect::<Vec<F>>();
+
+            let vanish_poly = s
+                .into_iter()
+                .map(|s| DensePolynomial::from_coefficients_slice(&[-s, F::one()]))
+                .fold(
+                    DensePolynomial::from_coefficients_slice(&[F::one()]),
+                    |acc, poly| &acc * &poly,
+                );
+
+            let vanish_squared = &vanish_poly * &vanish_poly;
+
+            let n = coset_precomp.coset.len();
+
+            let log_n = n.trailing_zeros() as usize;
+            let mut x_to_nn = DensePolynomial::from_coefficients_slice(&[F::zero(), F::one()]);
+            for _ in 0..log_n - 1 {
+                x_to_nn = &x_to_nn * &x_to_nn;
+            }
+
+            let x_nn = DenseOrSparsePolynomial::from(&x_to_nn);
+            let vanish_squared_dors = DenseOrSparsePolynomial::from(&vanish_squared);
+            let (_, vanish_squared_rem_xnn) =
+                vanish_squared_dors.divide_with_q_and_r(&x_nn).unwrap();
+
+            let vanish_on_s_prime_calc = coset_precomp
+                .coset
+                .iter()
+                .map(|val| vanish_squared_rem_xnn.evaluate(val))
+                .collect::<Vec<F>>();
+            assert_eq!(coset_precomp.z0z0_rem_xnn, vanish_on_s_prime_calc);
         }
     }
 
@@ -216,5 +269,88 @@ mod tests {
             }
             assert_eq!(redc_evals, redc_evals_from_poly);
         }
+    }
+
+    #[test]
+    fn test_modulo() {
+        type P = Bn254ScalarEcFftParameters;
+        let precomputation = P::precompute();
+        for i in 1..P::LOG_N {
+            let coset = &precomputation.coset_precomputations[P::LOG_N - i].coset;
+            let n = coset.len();
+            println!("n: {}", n);
+            let log_n = n.trailing_zeros() as usize;
+            let mut x_to_nn = DensePolynomial::from_coefficients_slice(&[F::zero(), F::one()]);
+            for _ in 0..log_n - 1 {
+                x_to_nn = &x_to_nn * &x_to_nn;
+            }
+
+            let mut rng = test_rng();
+            let poly = DensePolynomial::<F>::rand(n - 1, &mut rng);
+            let evals = precomputation.evaluate_over_domain(&poly);
+            let mod_evals = precomputation.modulo(&evals);
+            let poly_dors = DenseOrSparsePolynomial::from(&poly);
+            let x_nn = DenseOrSparsePolynomial::from(&x_to_nn);
+            let remainder = poly_dors.divide_with_q_and_r(&x_nn).unwrap().1;
+            let mut remainder_evals = Vec::new();
+            for val in coset.iter() {
+                remainder_evals.push(remainder.evaluate(val));
+            }
+            assert_eq!(mod_evals, remainder_evals);
+        }
+    }
+
+    #[test]
+    /// Tests the `evaluate_over_domain` function for various degrees.
+    fn test_interpolate() {
+        type P = Bn254ScalarEcFftParameters;
+        let precomputation = P::precompute();
+        for i in (0..P::LOG_N).rev() {
+            let mut rng = test_rng();
+            let coeffs: Vec<F> = (0..P::N >> i).map(|_| rng.gen()).collect();
+            let poly = DensePolynomial {
+                coeffs: coeffs.clone(),
+            };
+
+            let evals = P::sub_coset(i)
+                .iter()
+                .map(|x| poly.evaluate(x))
+                .collect::<Vec<_>>();
+            let now = std::time::Instant::now();
+            let poly_ecfft = precomputation.interpolate(&evals);
+            dbg!(now.elapsed().as_secs_f32());
+            assert_eq!(poly_ecfft, poly);
+            dbg!(now.elapsed().as_secs_f32());
+
+            let poly_ecfft = precomputation.interpolate(&coeffs);
+            let evals = precomputation.evaluate_over_domain(&poly_ecfft);
+            assert_eq!(evals, coeffs);
+        }
+    }
+
+    /// Returns the extended GCD of `a` and `b`. That is polynomials `s` and `t` such that
+    /// `a * t + b * s = gcd(a, b)`.
+    fn extended_gcd_algorithm<F: PrimeField>(
+        a: DenseOrSparsePolynomial<F>,
+        b: DenseOrSparsePolynomial<F>,
+    ) -> (DensePolynomial<F>, DensePolynomial<F>) {
+        let mut s = DensePolynomial::from_coefficients_vec(vec![F::one()]);
+        let mut old_s = DensePolynomial::from_coefficients_vec(vec![F::zero()]);
+        let mut t = DensePolynomial::from_coefficients_vec(vec![F::zero()]);
+        let mut old_t = DensePolynomial::from_coefficients_vec(vec![F::one()]);
+        let mut r = b;
+        let mut old_r = a;
+        while !r.is_zero() {
+            let (quotient, new_r) = old_r.divide_with_q_and_r(&r).unwrap();
+            old_r = r;
+            r = DenseOrSparsePolynomial::from(new_r);
+            let new_s = &old_s - &(&quotient * &s);
+            old_s = s;
+            s = new_s;
+            let new_t = &old_t - &(&quotient * &t);
+            old_t = t;
+            t = new_t;
+        }
+        (old_s, old_t)
     }
 }

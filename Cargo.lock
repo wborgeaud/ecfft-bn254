@@ -346,6 +346,7 @@ dependencies = [
  "ark-poly",
  "ark-std",
  "criterion",
+ "num-bigint",
 ]
 
 [[package]]
