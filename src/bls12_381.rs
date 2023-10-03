@@ -112,7 +112,7 @@ mod tests {
             &precomputation.steps[Bls12381Parameters::LOG_N - 1 - i];
         let evals_s = s.iter().map(|x| poly.evaluate(x)).collect::<Vec<_>>();
         let evals_s_prime = s_prime.iter().map(|x| poly.evaluate(x)).collect::<Vec<_>>();
-        assert_eq!(evals_s_prime, precomputation.extend(&evals_s));
+        assert_eq!(evals_s_prime, precomputation.extend_s_to_s_prime(&evals_s));
     }
 
     #[test]

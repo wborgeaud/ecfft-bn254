@@ -112,7 +112,8 @@ mod tests {
             &precomputation.steps[Bn254EcFftParameters::LOG_N - 1 - i];
         let evals_s = s.iter().map(|x| poly.evaluate(x)).collect::<Vec<_>>();
         let evals_s_prime = s_prime.iter().map(|x| poly.evaluate(x)).collect::<Vec<_>>();
-        assert_eq!(evals_s_prime, precomputation.extend(&evals_s));
+        assert_eq!(evals_s_prime, precomputation.extend_s_to_s_prime(&evals_s));
+        assert_eq!(evals_s, precomputation.extend_s_prime_to_s(&evals_s_prime));
     }
 
     #[test]
@@ -142,6 +143,34 @@ mod tests {
             dbg!(now.elapsed().as_secs_f32());
             assert_eq!(evals, precomputation.evaluate_over_domain(&poly));
             dbg!(now.elapsed().as_secs_f32());
+        }
+    }
+
+    #[test]
+    /// Tests the `evaluate_over_domain` function for various degrees.
+    fn test_interpolate() {
+        type P = Bn254EcFftParameters;
+        let precomputation = P::precompute();
+        for i in (0..P::LOG_N).rev() {
+            let mut rng = test_rng();
+            let coeffs: Vec<F> = (0..P::N >> i).map(|_| rng.gen()).collect();
+            let poly = DensePolynomial {
+                coeffs: coeffs.clone(),
+            };
+
+            let evals = P::sub_coset(i)
+                .iter()
+                .map(|x| poly.evaluate(x))
+                .collect::<Vec<_>>();
+            let now = std::time::Instant::now();
+            let poly_ecfft = precomputation.interpolate(&evals);
+            dbg!(now.elapsed().as_secs_f32());
+            assert_eq!(poly_ecfft, poly);
+            dbg!(now.elapsed().as_secs_f32());
+
+            let poly_ecfft = precomputation.interpolate(&coeffs);
+            let evals = precomputation.evaluate_over_domain(&poly_ecfft);
+            assert_eq!(evals, coeffs);
         }
     }
 }
