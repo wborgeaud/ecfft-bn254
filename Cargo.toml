@@ -16,6 +16,13 @@ num-bigint = "0.4.3"
 [dev-dependencies]
 criterion = "0.3.5"
 
+[[example]]
+name = "interpolate"
+
 [[bench]]
 name = "evaluations"
+harness = false
+
+[[bench]]
+name = "interpolation"
 harness = false

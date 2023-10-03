@@ -1,3 +1,4 @@
 /target
 get_params.sage.py
 .vscode/
+flamegraph.svg
